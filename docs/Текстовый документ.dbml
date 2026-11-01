@@ -1,0 +1,79 @@
+// e-commerce
+Table users {
+  id int [pk]
+  email varchar [unique, note: 'login email, must be unique']
+  name varchar
+  created_at timestamp
+  Note: 'Registered customers'
+}
+
+Table categories {
+  id int [pk]
+  name varchar
+}
+
+Table products {
+  id int [pk]
+  name varchar
+  price decimal [note: 'unit price in USD']
+  category_id int [ref: > categories.id]
+  Note: 'Catalog items for sale'
+}
+
+Table orders {
+  id int [pk]
+  user_id int [ref: > users.id]
+  status varchar [note: '1=processing, 2=shipped, 3=cancelled']
+  total decimal
+  created_at timestamp
+  Note: 'Customer orders'
+}
+
+Table order_items {
+  id int [pk]
+  order_id int [ref: > orders.id]
+  product_id int [ref: > products.id]
+  quantity int
+}
+
+Records categories (id, name) {
+  1, 'Peripherals'
+  2, 'Displays'
+  3, 'Audio'
+  4, 'Accessories'
+}
+
+Records users (id, email, name, created_at) {
+  1, 'alice@acme.com', 'Alice Johnson', '2024-01-10 09:00:00'
+  2, 'bob@acme.com', 'Bob Smith', '2024-01-12 10:30:00'
+  3, 'charlie@acme.com', 'Charlie Nguyen', '2024-01-15 14:20:00'
+  4, 'diana@acme.com', 'Diana Sato', '2024-01-18 08:45:00'
+  5, 'ethan@acme.com', 'Ethan Brown', '2024-01-20 16:10:00'
+}
+
+Records products (id, name, price, category_id) {
+  1, 'Wireless Mouse', 25, 1
+  2, 'Mechanical Keyboard', 80, 1
+  3, '27-inch Monitor', 299, 2
+  4, 'Bluetooth Speaker', 55, 3
+  5, 'USB-C Hub', 35, 4
+  6, 'Desk Lamp', 40, 4
+}
+
+Records orders (id, user_id, status, total, created_at) {
+  1, 1, 'shipped', 105, '2024-02-10 09:15:00'
+  2, 2, 'processing', 299, '2024-02-10 10:20:00'
+  3, 3, 'shipped', 115, '2024-02-11 11:30:00'
+  4, 1, 'cancelled', 40, '2024-02-11 12:00:00'
+  5, 4, 'shipped', 55, '2024-02-12 13:10:00'
+}
+
+Records order_items (id, order_id, product_id, quantity) {
+  1, 1, 1, 2
+  2, 1, 2, 1
+  3, 2, 3, 1
+  4, 3, 2, 1
+  5, 3, 5, 1
+  6, 4, 6, 1
+  7, 5, 4, 1
+}
