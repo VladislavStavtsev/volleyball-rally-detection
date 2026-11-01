@@ -5,6 +5,7 @@
 data/
 outputs/
 runs/
+*.db
 
 # тяжёлые файлы
 *.mp4
