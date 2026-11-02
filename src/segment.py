@@ -18,7 +18,6 @@ def fill_gaps(visible: list[int], max_gap: int) -> list[int]:
     return result                    
 
 
-
 def find_segments(visible: list[int]) -> list[tuple[int, int]]:
     """Найти отрезки подряд идущих единиц. Вернуть [(start_frame, end_frame), ...] включительно."""
     result = []
@@ -36,15 +35,29 @@ def find_segments(visible: list[int]) -> list[tuple[int, int]]:
     return result    
 
 
-
 def merge_segments(segments: list[tuple[int, int]], merge_window: int) -> list[tuple[int, int]]:
     """Объединить соседние отрезки, если между концом одного и началом следующего <= merge_window кадров."""
-    ...
+    if not segments:
+        return []
+
+    result = [segments[0]]
+    for start, end in segments[1:]:
+        last_start, last_end = result[-1]
+        gap = start - last_end - 1
+        if gap <= merge_window:
+            result[-1] = (last_start, end)
+        else:
+            result.append((start, end))
+    return result
 
 
 def filter_short(segments: list[tuple[int, int]], min_len: int) -> list[tuple[int, int]]:
     """Оставить отрезки длиной >= min_len кадров."""
-    ...
+    result = []
+    for start, end in segments:
+        if end - start + 1 >= min_len:
+            result.append((start, end))
+    return result    
 
 
 def segment_rallies(visible, max_gap=10, merge_window=30, min_len=60):
