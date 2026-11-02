@@ -21,7 +21,20 @@ def fill_gaps(visible: list[int], max_gap: int) -> list[int]:
 
 def find_segments(visible: list[int]) -> list[tuple[int, int]]:
     """Найти отрезки подряд идущих единиц. Вернуть [(start_frame, end_frame), ...] включительно."""
-    ...
+    result = []
+    slow = fast = 0
+    while fast < len(visible):
+        while fast < len(visible) and visible[fast] == 0:
+            fast += 1
+
+        slow = fast
+        while fast < len(visible) and visible[fast] != 0:
+            fast += 1
+        if slow < fast:
+            result.append((slow, fast - 1))    
+
+    return result    
+
 
 
 def merge_segments(segments: list[tuple[int, int]], merge_window: int) -> list[tuple[int, int]]:
