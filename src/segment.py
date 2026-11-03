@@ -2,6 +2,14 @@ import pandas as pd
 
 FPS = 29.97
 
+NET_LEFT = (542, 382)
+NET_RIGHT = (1407, 385)
+
+
+def net_y(x: float) -> float:
+    """Y верхнего края сетки в точке x (прямая через две измеренные точки)."""
+    (x1, y1), (x2, y2) = NET_LEFT, NET_RIGHT
+    return y1 + (y2 - y1) * (x - x1) / (x2 - x1)
 
 def fill_gaps(visible: list[int], max_gap: int) -> list[int]:
     """Залить нулями-дыры длиной <= max_gap, если слева и справа от них единицы."""
@@ -59,17 +67,74 @@ def filter_short(segments: list[tuple[int, int]], min_len: int) -> list[tuple[in
             result.append((start, end))
     return result    
 
+def is_above_net(x: float, y: float) -> bool:
+    """Мяч выше верхнего края сетки (Y растёт вниз, поэтому 'меньше' = 'выше')."""
+    return y < net_y(x)
 
-def segment_rallies(visible, max_gap=10, merge_window=30, min_len=60):
+
+def filter_below_net(segments, xs, ys, visible) -> list[tuple[int, int]]:
+    """Оставить отрезки, где мяч хотя бы раз был выше верхнего края сетки."""
+    result = []
+    for start, end in segments:
+        for i in range(start, end + 1):
+            if visible[i] == 1 and is_above_net(xs[i], ys[i]):
+                result.append((start, end))
+                break
+    return result
+
+def find_bounce(ys, visible, start, end, dy=8, k=3):
+    """Первый отскок в кадрах [start, end]: мяч шёл вниз и развернулся вверх.
+    Y растёт вниз, поэтому отскок — это локальный максимум Y."""
+    frames = [i for i in range(start, end + 1) if visible[i] == 1]
+    for n in range(k, len(frames) - k):
+        i = frames[n]
+        went_down = ys[i] - ys[frames[n - k]] >= dy
+        goes_up = ys[i] - ys[frames[n + k]] >= dy
+        if went_down and goes_up:
+            return i
+    return None
+
+
+def split_on_low_ball(segments, xs, ys, visible, max_low=60, tail=30):
+    """Разрезать отрезки там, где мяч дольше max_low кадров не поднимается выше сетки.
+    Конец каждого куска — отскок от пола, если он найден, иначе последний раз выше сетки + tail."""
+    result = []
+    for start, end in segments:
+        above = [i for i in range(start, end + 1)
+                 if visible[i] == 1 and is_above_net(xs[i], ys[i])]
+        if not above:
+            result.append((start, end))
+            continue
+
+        piece_start = start
+        prev = above[0]
+        for i in above[1:] + [None]:
+            if i is not None and i - prev <= max_low:
+                prev = i
+                continue
+            low_end = end if i is None else i - 1
+            bounce = find_bounce(ys, visible, prev, low_end)
+            piece_end = bounce if bounce is not None else min(low_end, prev + tail)
+            result.append((piece_start, piece_end))
+            if i is not None:
+                piece_start = prev = i
+    return result
+
+def segment_rallies(visible, xs, ys, max_gap=10, merge_window=30,
+                    min_len=30, max_low=60, tail=30):
     filled = fill_gaps(visible, max_gap)
     segments = find_segments(filled)
     merged = merge_segments(segments, merge_window)
-    return filter_short(merged, min_len)
+    above_net = filter_below_net(merged, xs, ys, visible)
+    pieces = split_on_low_ball(above_net, xs, ys, visible, max_low, tail)
+    return filter_short(pieces, min_len)
 
 
 if __name__ == "__main__":
     df = pd.read_csv("outputs/match/ball.csv")
-    rallies = segment_rallies(df["Visibility"].tolist())
+    rallies = segment_rallies(
+        df["Visibility"].tolist(), df["X"].tolist(), df["Y"].tolist()
+    )
     print(f"Найдено розыгрышей: {len(rallies)}")
     for i, (s, e) in enumerate(rallies, 1):
         print(f"{i:3d}  {s / FPS:7.1f} - {e / FPS:7.1f} с  ({(e - s + 1) / FPS:.1f} с)")
