@@ -70,3 +70,12 @@ if __name__ == "__main__":
         best = max(preds, key=lambda p: iou(lab, p))
         print(f"#{i + 1:2d}  разметка {lab[0]:6.0f}-{lab[1]:6.0f}   "
               f"ближайшее {best[0]:6.1f}-{best[1]:6.1f}   IoU {iou(lab, best):.2f}")
+
+    print("\nСтарт каждого предсказания: где мяч в начале и через 1 с")
+    true_preds = {j for _, j in pairs}
+    for j, (s, e) in enumerate(frames):
+        pts = [(ball.X[i], ball.Y[i]) for i in range(s, e + 1) if ball.Visibility[i] == 1]
+        x0, y0 = pts[0]
+        x1, y1 = pts[min(30, len(pts) - 1)]
+        tag = "TP" if j in true_preds else "FP"
+        print(f"{tag}  {s / FPS:6.1f} с   старт ({x0:4d}, {y0:4d})  через 1 с ({x1:4d}, {y1:4d})  dY {y1 - y0:+5d}")    

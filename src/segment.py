@@ -121,7 +121,7 @@ def split_on_low_ball(segments, xs, ys, visible, max_low=60, tail=30):
     return result
 
 def segment_rallies(visible, xs, ys, max_gap=10, merge_window=30,
-                    min_len=30, max_low=60, tail=30):
+                    min_len=60, max_low=45, tail=10):
     filled = fill_gaps(visible, max_gap)
     segments = find_segments(filled)
     merged = merge_segments(segments, merge_window)
