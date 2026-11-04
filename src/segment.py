@@ -1,10 +1,22 @@
 import pandas as pd
+import math
 
 FPS = 29.97
 
 NET_LEFT = (542, 382)
 NET_RIGHT = (1407, 385)
 
+def remove_jumps(visible, xs, ys, max_jump=150):
+    """Убрать одиночные скачки детектора: точку, которая отскочила
+    больше чем на max_jump пикс/кадр и от предыдущей, и от следующей видимой."""
+    clean = visible.copy()
+    idx = [i for i, v in enumerate(visible) if v == 1]
+    for a, b, c in zip(idx, idx[1:], idx[2:]):
+        to_prev = math.dist((xs[a], ys[a]), (xs[b], ys[b])) / (b - a)
+        to_next = math.dist((xs[b], ys[b]), (xs[c], ys[c])) / (c - b)
+        if to_prev > max_jump and to_next > max_jump:
+            clean[b] = 0
+    return clean
 
 def net_y(x: float) -> float:
     """Y верхнего края сетки в точке x (прямая через две измеренные точки)."""
@@ -121,13 +133,15 @@ def split_on_low_ball(segments, xs, ys, visible, max_low=60, tail=30):
     return result
 
 def segment_rallies(visible, xs, ys, max_gap=10, merge_window=30,
-                    min_len=60, max_low=45, tail=10):
+                    min_len=60, max_low=45, tail=10, end_shift=30):
+    visible = remove_jumps(visible, xs, ys)
     filled = fill_gaps(visible, max_gap)
     segments = find_segments(filled)
     merged = merge_segments(segments, merge_window)
     above_net = filter_below_net(merged, xs, ys, visible)
     pieces = split_on_low_ball(above_net, xs, ys, visible, max_low, tail)
-    return filter_short(pieces, min_len)
+    long_enough = filter_short(pieces, min_len)
+    return [(s, max(s, e - end_shift)) for s, e in long_enough]
 
 
 if __name__ == "__main__":

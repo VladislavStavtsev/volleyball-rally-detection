@@ -52,6 +52,39 @@ def metrics(n_labels: int, n_preds: int, n_pairs: int) -> dict:
     "f1": f1,
     }
 
+def match_events(labels, preds, start_tol=1.0) -> list[tuple[int, int]]:
+    """Сопоставление по событию: предсказание пересекается с розыгрышем
+    и его начало отличается не больше чем на start_tol секунд."""
+    used = set()
+    pairs = []
+    for i, (ls, le) in enumerate(labels):
+        best_j, best_diff = None, None
+        for j, (ps, pe) in enumerate(preds):
+            if j in used or iou((ls, le), (ps, pe)) == 0:
+                continue
+            diff = abs(ps - ls)
+            if diff <= start_tol and (best_diff is None or diff < best_diff):
+                best_j, best_diff = j, diff
+        if best_j is not None:
+            used.add(best_j)
+            pairs.append((i, best_j))
+    return pairs
+
+
+def boundary_errors(labels, preds, pairs) -> dict:
+    """Ошибки границ по найденным парам, в секундах.
+    Сдвиг конца со знаком: плюс — программа заканчивает позже разметки."""
+    if not pairs:
+        return {}
+    d_start = [preds[j][0] - labels[i][0] for i, j in pairs]
+    d_end = [preds[j][1] - labels[i][1] for i, j in pairs]
+    n = len(pairs)
+    return {
+        "start_mae": round(sum(abs(d) for d in d_start) / n, 2),
+        "end_mae": round(sum(abs(d) for d in d_end) / n, 2),
+        "end_bias": round(sum(d_end) / n, 2),
+    }
+
 if __name__ == "__main__":
     labels_df = pd.read_csv("labels/labels.csv")
     labels = list(zip(labels_df["start"], labels_df["end"]))
@@ -60,22 +93,15 @@ if __name__ == "__main__":
     frames = segment_rallies(ball["Visibility"].tolist(), ball["X"].tolist(), ball["Y"].tolist())
     preds = [(s / FPS, e / FPS) for s, e in frames]
 
-    pairs = match(labels, preds)
-    print(metrics(len(labels), len(preds), len(pairs)))
-    print("\nПропущенные розыгрыши и ближайшее предсказание:")
-    matched = {i for i, _ in pairs}
-    for i, lab in enumerate(labels):
-        if i in matched:
-            continue
-        best = max(preds, key=lambda p: iou(lab, p))
-        print(f"#{i + 1:2d}  разметка {lab[0]:6.0f}-{lab[1]:6.0f}   "
-              f"ближайшее {best[0]:6.1f}-{best[1]:6.1f}   IoU {iou(lab, best):.2f}")
+    strict = match(labels, preds)
+    events = match_events(labels, preds)
 
-    print("\nСтарт каждого предсказания: где мяч в начале и через 1 с")
-    true_preds = {j for _, j in pairs}
-    for j, (s, e) in enumerate(frames):
-        pts = [(ball.X[i], ball.Y[i]) for i in range(s, e + 1) if ball.Visibility[i] == 1]
-        x0, y0 = pts[0]
-        x1, y1 = pts[min(30, len(pts) - 1)]
-        tag = "TP" if j in true_preds else "FP"
-        print(f"{tag}  {s / FPS:6.1f} с   старт ({x0:4d}, {y0:4d})  через 1 с ({x1:4d}, {y1:4d})  dY {y1 - y0:+5d}")    
+    print("Строго (IoU >= 0.5):  ", metrics(len(labels), len(preds), len(strict)))
+    print("По событию (старт ±1 с):", metrics(len(labels), len(preds), len(events)))
+    print("Ошибки границ:          ", boundary_errors(labels, preds, events))
+
+    print("\nПропущенные по событию:")
+    found = {i for i, _ in events}
+    for i, (ls, le) in enumerate(labels):
+        if i not in found:
+            print(f"#{i + 1:2d}  {int(ls) // 60}:{int(ls) % 60:02d}  ({ls:.0f}-{le:.0f})")   
