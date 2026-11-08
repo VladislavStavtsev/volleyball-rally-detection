@@ -4,10 +4,11 @@ import json
 import pandas as pd
 
 from src.segment import segment_rallies
+from src.segment import remove_jumps, segment_rallies
+from src.serve import serve_side
 
-
-def build_rallies(frames, fps):
-    """Список отрезков в кадрах → список розыгрышей в формате задания (+ поля для БД)."""
+def build_rallies(frames, fps, xs, visible):
+    """Отрезки в кадрах → розыгрыши в формате задания (+ поля для БД)."""
     return [
         {
             "number": n,
@@ -15,7 +16,7 @@ def build_rallies(frames, fps):
             "end": round(e / fps, 1),
             "start_frame": s,
             "end_frame": e,
-            "serve_side": "unknown",
+            "serve_side": serve_side(s, e, xs, visible),
         }
         for n, (s, e) in enumerate(frames, 1)
     ]
@@ -30,7 +31,9 @@ def main():
 
     ball = pd.read_csv(args.csv)
     frames = segment_rallies(ball["Visibility"].tolist(), ball["X"].tolist(), ball["Y"].tolist())
-    rallies = build_rallies(frames, args.fps)
+    xs = ball["X"].tolist()
+    visible = remove_jumps(ball["Visibility"].tolist(), xs, ball["Y"].tolist())
+    rallies = build_rallies(frames, args.fps, xs, visible)
 
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump({"fps": args.fps, "rallies": rallies}, f, ensure_ascii=False, indent=2)

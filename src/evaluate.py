@@ -1,6 +1,8 @@
 import pandas as pd
 
 from src.segment import FPS, segment_rallies
+from src.segment import FPS, remove_jumps, segment_rallies
+from src.serve import serve_side
 
 
 def iou(a: tuple[float, float], b: tuple[float, float]) -> float:
@@ -104,4 +106,27 @@ if __name__ == "__main__":
     found = {i for i, _ in events}
     for i, (ls, le) in enumerate(labels):
         if i not in found:
-            print(f"#{i + 1:2d}  {int(ls) // 60}:{int(ls) % 60:02d}  ({ls:.0f}-{le:.0f})")   
+            print(f"#{i + 1:2d}  {int(ls) // 60}:{int(ls) % 60:02d}  ({ls:.0f}-{le:.0f})")
+
+    visible = remove_jumps(ball["Visibility"].tolist(), ball["X"].tolist(), ball["Y"].tolist())
+    xs = ball["X"].tolist()
+    true_sides = labels_df["serve_side"].tolist()
+
+    print("\nСторона подачи (по найденным розыгрышам):")
+    for half_name, first_half in [("1-я половина", True), ("2-я половина", False)]:
+        correct = total = 0
+        for i, j in events:
+            if (labels[i][0] < 638) != first_half:
+                continue
+            s, e = frames[j]
+            total += 1
+            correct += serve_side(s, e, xs, visible) == true_sides[i]
+        print(f"{half_name}: {correct}/{total} = {correct / total:.2f}")
+
+    print("\nОшибки стороны подачи:")
+    for i, j in events:
+        s, e = frames[j]
+        pred_side = serve_side(s, e, xs, visible)
+        if pred_side != true_sides[i]:
+            print(f"#{i + 1:2d}  {int(labels[i][0]) // 60}:{int(labels[i][0]) % 60:02d}  "
+                  f"разметка {true_sides[i]}, предсказано {pred_side}")        
