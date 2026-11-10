@@ -6,32 +6,39 @@ from src.serve import serve_side
 
 
 def iou(a: tuple[float, float], b: tuple[float, float]) -> float:
-    """IoU двух интервалов (start, end) в секундах."""
+    """IoU (Intersection over Union) двух интервалов времени (start, end) в секундах.
+
+    Пересечение — общая часть интервалов, объединение — всё, что покрывают оба вместе.
+    IoU = пересечение / объединение: 1 — полное совпадение, 0 — не пересекаются.
+
+    Пример: a = (10, 17), b = (13, 20)
+        пересечение 13..17 = 4 с, объединение 10..20 = 10 с, IoU = 0.4
+    """
     start_a, end_a = a
     start_b, end_b = b
-    start = max(start_a, start_b)
-    end = min(end_a, end_b)
-    intersection = max(0, end - start)
-    union = max(end_a, end_b) - min(start_a, start_b)
+    start = max(start_a, start_b)   # пересечение начинается там, где начинается позже
+    end = min(end_a, end_b)         # и кончается там, где кончается раньше
+    intersection = max(0, end - start)                     # 0, если не пересекаются
+    union = max(end_a, end_b) - min(start_a, start_b)      # от самого раннего начала до самого позднего конца
     if union == 0:
         return 0.0
-    return intersection / union 
+    return intersection / union
 
 
 def match(labels, preds, threshold=0.5) -> list[tuple[int, int]]:
     """Сопоставить разметку и предсказания. Вернуть пары индексов (i_label, j_pred)."""
-    used = set()
+    used = set() # номера предсказаний, которые уже кому-то отданы
     pairs = []
-    for i, lab in enumerate(labels):
+    for i, lab in enumerate(labels): # идём по розыгрышам разметки
         best_j, best_iou = None, 0.0
-        for j, pred in enumerate(preds):
-            if j in used:
+        for j, pred in enumerate(preds): # ищем для него лучшее предсказание
+            if j in used: # уже занято — пропускаем
                 continue
             score = iou(lab, pred)
             if score > best_iou:
                 best_j, best_iou = j, score
         if best_j is not None and best_iou >= threshold:
-            used.add(best_j)
+            used.add(best_j) # закрепили
             pairs.append((i, best_j))
     return pairs
 
