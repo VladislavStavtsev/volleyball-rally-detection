@@ -19,3 +19,16 @@ external/
 # служебное
 __pycache__/
 .vscode/
+
+# секреты и кэши
+.env
+*.pyc
+.pytest_cache/
+notes.md
+
+# система
+Thumbs.db
+
+# видео и логи
+*.mov
+*.log
